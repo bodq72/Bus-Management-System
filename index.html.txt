@@ -5,141 +5,118 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bus Management System</title>
     <style>
-        :root { --primary: #2c3e50; --secondary: #34495e; --accent: #3498db; --light: #ecf0f1; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--light); margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h1, h2 { text-align: center; color: var(--primary); }
-        .btn { width: 100%; padding: 12px; margin: 8px 0; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-danger { background: #e74c3c; color: white; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; color: #333; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px 0; font-weight: bold; }
         .hidden { display: none; }
-        .bus-card { border-bottom: 1px solid #ddd; padding: 10px 0; }
-        .nav-bar { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .bus-item { border-bottom: 1px solid #eee; padding: 10px 0; }
+        #error-msg { color: red; font-size: 12px; text-align: center; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Bus System</h1>
-    <p id="userStatus" style="text-align:center; font-weight:bold;"></p>
+    <h2 style="text-align:center;">Bus Management</h2>
+    <div id="error-msg"></div>
 
-    <!-- AUTH SECTION -->
-    <div id="authSection">
-        <input type="text" id="username" placeholder="Username">
-        <input type="password" id="password" placeholder="Password">
-        <button class="btn btn-primary" onclick="login()">Login</button>
-        <button class="btn" style="background:#95a5a6; color:white;" onclick="signUp()">Sign Up</button>
+    <!-- LOGIN FORM -->
+    <div id="login-view">
+        <input type="text" id="user" placeholder="Username (admin)">
+        <input type="password" id="pass" placeholder="Password (admin123)">
+        <button onclick="handleLogin()">Login</button>
+        <button style="background:#7f8c8d;" onclick="handleSignup()">Sign Up</button>
     </div>
 
-    <!-- MAIN MENU -->
-    <div id="menuSection" class="hidden">
-        <div class="nav-bar">
-            <button onclick="logout()">Logout</button>
-        </div>
+    <!-- APP CONTENT -->
+    <div id="app-view" class="hidden">
+        <p id="welcome" style="text-align:right; font-size:12px;"></p>
         
-        <!-- ADMIN ONLY -->
-        <div id="adminControls" class="hidden">
-            <h2>Admin Panel</h2>
-            <input type="number" id="busNum" placeholder="Bus Number">
-            <input type="text" id="busRoute" placeholder="Destinations (comma separated)">
-            <button class="btn btn-primary" onclick="addBus()">Add Bus</button>
+        <div id="admin-tools" class="hidden">
+            <h4 style="margin-bottom:5px;">Admin: Add Bus</h4>
+            <input type="number" id="bus-id" placeholder="Bus Number">
+            <input type="text" id="bus-route" placeholder="Routes (e.g. Cairo, Giza, Alex)">
+            <button style="background:#27ae60;" onclick="addBus()">Save Bus</button>
             <hr>
         </div>
 
-        <!-- USER SECTION -->
-        <h2>Search Route</h2>
-        <input type="text" id="searchFrom" placeholder="From (e.g. London)">
-        <input type="text" id="searchTo" placeholder="To (e.g. Paris)">
-        <button class="btn btn-primary" onclick="findBus()">Find Bus</button>
+        <h4>Search Route</h4>
+        <input type="text" id="from-loc" placeholder="From...">
+        <input type="text" id="to-loc" placeholder="To...">
+        <button onclick="searchBuses()">Find Bus</button>
+        <button style="background:#9b59b6;" onclick="renderList()">Show All</button>
         
-        <button class="btn" style="background:#2ecc71; color:white;" onclick="showAll()">Show All Buses</button>
-        
-        <div id="displayArea" style="margin-top:20px;"></div>
+        <div id="results" style="margin-top:20px;"></div>
+        <button style="background:#e74c3c; margin-top:30px;" onclick="location.reload()">Logout</button>
     </div>
 </div>
 
 <script>
-    // Initial Data
-    let users = JSON.parse(localStorage.getItem('busUsers')) || [{user: 'admin', pass: 'admin123', isAdmin: true}];
-    let buses = JSON.parse(localStorage.getItem('busData')) || [];
-    let currentUser = null;
+    // Data Storage
+    let users = JSON.parse(localStorage.getItem('bus_users')) || [{u:'admin', p:'admin123', role:'admin'}];
+    let buses = JSON.parse(localStorage.getItem('bus_list')) || [];
+    let activeUser = null;
 
-    function login() {
-        const u = document.getElementById('username').value;
-        const p = document.getElementById('password').value;
-        const account = users.find(x => x.user === u && x.pass === p);
-        
-        if (account) {
-            currentUser = account;
-            document.getElementById('authSection').classList.add('hidden');
-            document.getElementById('menuSection').classList.remove('hidden');
-            document.getElementById('userStatus').innerText = `Logged in as: ${u}`;
-            if(account.isAdmin) document.getElementById('adminControls').classList.remove('hidden');
+    function handleLogin() {
+        const u = document.getElementById('user').value;
+        const p = document.getElementById('pass').value;
+        const found = users.find(x => x.u === u && x.p === p);
+
+        if(found) {
+            activeUser = found;
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('app-view').classList.remove('hidden');
+            document.getElementById('welcome').innerText = "User: " + u;
+            if(found.role === 'admin') document.getElementById('admin-tools').classList.remove('hidden');
         } else {
-            alert("Invalid credentials!");
+            document.getElementById('error-msg').innerText = "Invalid Login!";
         }
     }
 
-    function signUp() {
-        const u = document.getElementById('username').value;
-        const p = document.getElementById('password').value;
-        if(!u || !p) return alert("Fill all fields");
-        if(users.find(x => x.user === u)) return alert("User exists!");
+    function handleSignup() {
+        const u = document.getElementById('user').value;
+        const p = document.getElementById('pass').value;
+        if(!u || !p) return alert("Enter details");
+        if(users.find(x => x.u === u)) return alert("User exists");
 
-        users.push({user: u, pass: p, isAdmin: false});
-        localStorage.setItem('busUsers', JSON.stringify(users));
-        alert("Account Created! You can now login.");
+        users.push({u: u, p: p, role: 'user'});
+        localStorage.setItem('bus_users', JSON.stringify(users));
+        alert("Signed up! Now click Login.");
     }
 
     function addBus() {
-        const num = document.getElementById('busNum').value;
-        const routes = document.getElementById('busRoute').value.split(',').map(s => s.trim().toUpperCase());
-        if(!num || routes.length === 0) return alert("Enter details");
+        const id = document.getElementById('bus-id').value;
+        const routeStr = document.getElementById('bus-route').value;
+        if(!id || !routeStr) return;
 
-        buses.push({number: num, routes: routes});
-        localStorage.setItem('busData', JSON.stringify(buses));
-        alert("Bus Added!");
-        showAll();
+        const routeArr = routeStr.split(',').map(s => s.trim().toUpperCase());
+        buses.push({id: id, stops: routeArr});
+        localStorage.setItem('bus_list', JSON.stringify(buses));
+        alert("Bus " + id + " Added");
+        document.getElementById('bus-id').value = '';
+        document.getElementById('bus-route').value = '';
     }
 
-    function showAll() {
-        const area = document.getElementById('displayArea');
-        area.innerHTML = "<h3>All Buses:</h3>";
-        buses.forEach((b, index) => {
-            area.innerHTML += `
-                <div class="bus-card">
-                    <strong>Bus ${b.number}</strong><br>
-                    Routes: ${b.routes.join(' → ')}
-                    ${currentUser.isAdmin ? `<br><button class="btn-danger" onclick="deleteBus(${index})" style="padding:4px 8px; font-size:12px; margin-top:5px;">Delete</button>` : ''}
-                </div>`;
+    function searchBuses() {
+        const f = document.getElementById('from-loc').value.toUpperCase();
+        const t = document.getElementById('to-loc').value.toUpperCase();
+        const out = document.getElementById('results');
+        
+        const match = buses.filter(b => b.stops.includes(f) && b.stops.includes(t));
+        out.innerHTML = "<b>Results:</b><br>";
+        if(match.length === 0) out.innerHTML += "None found.";
+        match.forEach(m => {
+            out.innerHTML += `<div class="bus-item">🚌 Bus <b>${m.id}</b> serves this route!</div>`;
         });
     }
 
-    function findBus() {
-        const from = document.getElementById('searchFrom').value.toUpperCase();
-        const to = document.getElementById('searchTo').value.toUpperCase();
-        const area = document.getElementById('displayArea');
-        
-        const results = buses.filter(b => b.routes.includes(from) && b.routes.includes(to));
-        
-        area.innerHTML = "<h3>Results:</h3>";
-        if(results.length === 0) area.innerHTML += "<p>No buses found for this route.</p>";
-        results.forEach(b => {
-            area.innerHTML += `<div class="bus-card">✅ Take Bus <strong>${b.number}</strong></div>`;
+    function renderList() {
+        const out = document.getElementById('results');
+        out.innerHTML = "<b>All Buses:</b>";
+        buses.forEach(b => {
+            out.innerHTML += `<div class="bus-item"><b>No. ${b.id}</b>: ${b.stops.join(' → ')}</div>`;
         });
-    }
-
-    function deleteBus(index) {
-        buses.splice(index, 1);
-        localStorage.setItem('busData', JSON.stringify(buses));
-        showAll();
-    }
-
-    function logout() {
-        location.reload();
     }
 </script>
-
 </body>
 </html>
