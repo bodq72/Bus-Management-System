@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Management System</title>
+    <style>
+        :root { --primary: #2c3e50; --secondary: #34495e; --accent: #3498db; --light: #ecf0f1; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--light); margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: var(--primary); }
+        .btn { width: 100%; padding: 12px; margin: 8px 0; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .hidden { display: none; }
+        .bus-card { border-bottom: 1px solid #ddd; padding: 10px 0; }
+        .nav-bar { display: flex; justify-content: space-between; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Bus System</h1>
+    <p id="userStatus" style="text-align:center; font-weight:bold;"></p>
+
+    <!-- AUTH SECTION -->
+    <div id="authSection">
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button class="btn btn-primary" onclick="login()">Login</button>
+        <button class="btn" style="background:#95a5a6; color:white;" onclick="signUp()">Sign Up</button>
+    </div>
+
+    <!-- MAIN MENU -->
+    <div id="menuSection" class="hidden">
+        <div class="nav-bar">
+            <button onclick="logout()">Logout</button>
+        </div>
+        
+        <!-- ADMIN ONLY -->
+        <div id="adminControls" class="hidden">
+            <h2>Admin Panel</h2>
+            <input type="number" id="busNum" placeholder="Bus Number">
+            <input type="text" id="busRoute" placeholder="Destinations (comma separated)">
+            <button class="btn btn-primary" onclick="addBus()">Add Bus</button>
+            <hr>
+        </div>
+
+        <!-- USER SECTION -->
+        <h2>Search Route</h2>
+        <input type="text" id="searchFrom" placeholder="From (e.g. London)">
+        <input type="text" id="searchTo" placeholder="To (e.g. Paris)">
+        <button class="btn btn-primary" onclick="findBus()">Find Bus</button>
+        
+        <button class="btn" style="background:#2ecc71; color:white;" onclick="showAll()">Show All Buses</button>
+        
+        <div id="displayArea" style="margin-top:20px;"></div>
+    </div>
+</div>
+
+<script>
+    // Initial Data
+    let users = JSON.parse(localStorage.getItem('busUsers')) || [{user: 'admin', pass: 'admin123', isAdmin: true}];
+    let buses = JSON.parse(localStorage.getItem('busData')) || [];
+    let currentUser = null;
+
+    function login() {
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+        const account = users.find(x => x.user === u && x.pass === p);
+        
+        if (account) {
+            currentUser = account;
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('menuSection').classList.remove('hidden');
+            document.getElementById('userStatus').innerText = `Logged in as: ${u}`;
+            if(account.isAdmin) document.getElementById('adminControls').classList.remove('hidden');
+        } else {
+            alert("Invalid credentials!");
+        }
+    }
+
+    function signUp() {
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+        if(!u || !p) return alert("Fill all fields");
+        if(users.find(x => x.user === u)) return alert("User exists!");
+
+        users.push({user: u, pass: p, isAdmin: false});
+        localStorage.setItem('busUsers', JSON.stringify(users));
+        alert("Account Created! You can now login.");
+    }
+
+    function addBus() {
+        const num = document.getElementById('busNum').value;
+        const routes = document.getElementById('busRoute').value.split(',').map(s => s.trim().toUpperCase());
+        if(!num || routes.length === 0) return alert("Enter details");
+
+        buses.push({number: num, routes: routes});
+        localStorage.setItem('busData', JSON.stringify(buses));
+        alert("Bus Added!");
+        showAll();
+    }
+
+    function showAll() {
+        const area = document.getElementById('displayArea');
+        area.innerHTML = "<h3>All Buses:</h3>";
+        buses.forEach((b, index) => {
+            area.innerHTML += `
+                <div class="bus-card">
+                    <strong>Bus ${b.number}</strong><br>
+                    Routes: ${b.routes.join(' → ')}
+                    ${currentUser.isAdmin ? `<br><button class="btn-danger" onclick="deleteBus(${index})" style="padding:4px 8px; font-size:12px; margin-top:5px;">Delete</button>` : ''}
+                </div>`;
+        });
+    }
+
+    function findBus() {
+        const from = document.getElementById('searchFrom').value.toUpperCase();
+        const to = document.getElementById('searchTo').value.toUpperCase();
+        const area = document.getElementById('displayArea');
+        
+        const results = buses.filter(b => b.routes.includes(from) && b.routes.includes(to));
+        
+        area.innerHTML = "<h3>Results:</h3>";
+        if(results.length === 0) area.innerHTML += "<p>No buses found for this route.</p>";
+        results.forEach(b => {
+            area.innerHTML += `<div class="bus-card">✅ Take Bus <strong>${b.number}</strong></div>`;
+        });
+    }
+
+    function deleteBus(index) {
+        buses.splice(index, 1);
+        localStorage.setItem('busData', JSON.stringify(buses));
+        showAll();
+    }
+
+    function logout() {
+        location.reload();
+    }
+</script>
+
+</body>
+</html>
